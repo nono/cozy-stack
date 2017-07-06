@@ -29,6 +29,7 @@ import (
 	"github.com/cozy/cozy-stack/web/realtime"
 	"github.com/cozy/cozy-stack/web/registry"
 	"github.com/cozy/cozy-stack/web/remote"
+	"github.com/cozy/cozy-stack/web/search"
 	"github.com/cozy/cozy-stack/web/settings"
 	"github.com/cozy/cozy-stack/web/sharings"
 	_ "github.com/cozy/cozy-stack/web/statik" // Generated file with the packed assets
@@ -182,6 +183,7 @@ func SetupRoutes(router *echo.Echo) error {
 	registry.Routes(router.Group("/registry", mws...))
 	data.Routes(router.Group("/data", mws...))
 	if config.IsDevRelease() {
+		search.Routes(router.Group("/search", mws...))
 		imexport.Routes(router.Group("/imexport", mws...))
 	}
 	files.Routes(router.Group("/files", mws...))
