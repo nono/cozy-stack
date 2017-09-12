@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/blevesearch/bleve"
+	"github.com/blevesearch/bleve/analysis/lang/en"
+	"github.com/blevesearch/bleve/analysis/lang/fr"
 	"github.com/cozy/cozy-stack/pkg/consts"
 	"github.com/cozy/cozy-stack/pkg/couchdb"
 	"github.com/cozy/cozy-stack/pkg/instance"
@@ -15,7 +17,7 @@ import (
 func getFilesIndex(ins *instance.Instance) (bleve.Index, error) {
 	doctype := consts.Files
 	nameFieldMapping := bleve.NewTextFieldMapping()
-	nameFieldMapping.Analyzer = "en"
+	nameFieldMapping.Analyzer = en.AnalyzerName
 	docMapping := bleve.NewDocumentMapping()
 	docMapping.AddFieldMappingsAt("name", nameFieldMapping)
 	mapping := bleve.NewIndexMapping()
@@ -46,7 +48,7 @@ func getFilesIndex(ins *instance.Instance) (bleve.Index, error) {
 func getContactsIndex(ins *instance.Instance) (bleve.Index, error) {
 	doctype := consts.Contacts
 	docMapping := bleve.NewDocumentMapping()
-	docMapping.DefaultAnalyzer = "en"
+	docMapping.DefaultAnalyzer = fr.AnalyzerName
 	mapping := bleve.NewIndexMapping()
 	mapping.DefaultType = doctype
 	mapping.AddDocumentMapping(doctype, docMapping)
