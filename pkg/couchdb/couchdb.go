@@ -887,6 +887,7 @@ type AllDocsRequest struct {
 	StartKeyDocID string `url:"startkey_docid,omitempty"`
 	EndKey        string `url:"endkey,omitempty"`
 	EndKeyDocID   string `url:"endkey_docid,omitempty"`
+	Keys          string `url:"keys,omitempty"` // Must be a JSON array, like `["id1","id2","id3"]`
 }
 
 // AllDocsResponse is the response we receive from an _all_docs request

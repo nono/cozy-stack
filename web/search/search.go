@@ -1,6 +1,7 @@
 package search
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -84,6 +85,11 @@ func getIndex(ins *instance.Instance, doctype string) (bleve.Index, error) {
 	return nil, errors.New("Only io.cozy.files and io.cozy.contacts can be searched currently")
 }
 
+type response struct {
+	Hits  []interface{} `json:"hits"`
+	Total uint64        `json:"total"`
+}
+
 // curl "http://cozy.tools:8080/search/io.cozy.files?q=Demo" | jq .
 func search(c echo.Context) error {
 	doctype := c.Param("doctype")
@@ -101,16 +107,38 @@ func search(c echo.Context) error {
 
 	query := bleve.NewQueryStringQuery(q)
 	request := bleve.NewSearchRequest(query)
-	request.Fields = []string{"*"}
 	results, err := idx.Search(request)
 	if err != nil {
 		return err
 	}
 
+	var hits []interface{}
+	if len(results.Hits) > 0 {
+		ids := make([]string, len(results.Hits))
+		for i, h := range results.Hits {
+			ids[i] = h.ID
+		}
+		keys, err := json.Marshal(ids)
+		if err != nil {
+			return err
+		}
+		find := &couchdb.AllDocsRequest{
+			Keys: string(keys),
+		}
+		if err := couchdb.GetAllDocs(ins, doctype, find, &hits); err != nil {
+			return err
+		}
+	}
+
+	response := response{
+		Hits:  hits,
+		Total: results.Total,
+	}
+
 	// TODO authorization
 	// TODO improve errors
 	// TODO use JSON-API
-	return c.JSON(http.StatusOK, results)
+	return c.JSON(http.StatusOK, response)
 }
 
 // Routes sets the routing for the search service
