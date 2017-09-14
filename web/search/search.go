@@ -48,11 +48,9 @@ func getFilesIndex(ins *instance.Instance) (bleve.Index, error) {
 
 func getContactsIndex(ins *instance.Instance) (bleve.Index, error) {
 	doctype := consts.Contacts
-	docMapping := bleve.NewDocumentMapping()
-	docMapping.DefaultAnalyzer = fr.AnalyzerName
 	mapping := bleve.NewIndexMapping()
 	mapping.DefaultType = doctype
-	mapping.AddDocumentMapping(doctype, docMapping)
+	mapping.DefaultAnalyzer = fr.AnalyzerName
 
 	idx, err := bleve.NewMemOnly(mapping) // TODO in-memory is just for testing
 	if err != nil {
@@ -135,6 +133,7 @@ func search(c echo.Context) error {
 		Total: results.Total,
 	}
 
+	// TODO facets, highlighting, paginatination
 	// TODO authorization
 	// TODO improve errors
 	// TODO use JSON-API
