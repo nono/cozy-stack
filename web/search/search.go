@@ -6,8 +6,10 @@ import (
 	"net/http"
 
 	"github.com/blevesearch/bleve"
-	"github.com/blevesearch/bleve/analysis/lang/en"
+	"github.com/blevesearch/bleve/analysis/analyzer/custom"
 	"github.com/blevesearch/bleve/analysis/lang/fr"
+	"github.com/blevesearch/bleve/analysis/token/lowercase"
+	"github.com/blevesearch/bleve/analysis/tokenizer/letter"
 	"github.com/cozy/cozy-stack/pkg/consts"
 	"github.com/cozy/cozy-stack/pkg/couchdb"
 	"github.com/cozy/cozy-stack/pkg/instance"
@@ -17,13 +19,25 @@ import (
 
 func getFilesIndex(ins *instance.Instance) (bleve.Index, error) {
 	doctype := consts.Files
-	nameFieldMapping := bleve.NewTextFieldMapping()
-	nameFieldMapping.Analyzer = en.AnalyzerName
-	docMapping := bleve.NewDocumentMapping()
-	docMapping.AddFieldMappingsAt("name", nameFieldMapping)
 	mapping := bleve.NewIndexMapping()
+	err := mapping.AddCustomAnalyzer("fr-letter",
+		map[string]interface{}{
+			"type":         custom.Name,
+			"char_filters": []interface{}{},
+			"tokenizer":    letter.Name,
+			"token_filters": []interface{}{
+				lowercase.Name,
+				fr.ElisionName,
+				fr.StopName,
+				fr.LightStemmerName,
+			},
+		})
+	if err != nil {
+		return nil, err
+	}
+
 	mapping.DefaultType = doctype
-	mapping.AddDocumentMapping(doctype, docMapping)
+	mapping.DefaultAnalyzer = "fr-letter"
 
 	idx, err := bleve.NewMemOnly(mapping) // TODO in-memory is just for testing
 	if err != nil {
@@ -49,8 +63,24 @@ func getFilesIndex(ins *instance.Instance) (bleve.Index, error) {
 func getContactsIndex(ins *instance.Instance) (bleve.Index, error) {
 	doctype := consts.Contacts
 	mapping := bleve.NewIndexMapping()
+	err := mapping.AddCustomAnalyzer("fr-letter",
+		map[string]interface{}{
+			"type":         custom.Name,
+			"char_filters": []interface{}{},
+			"tokenizer":    letter.Name,
+			"token_filters": []interface{}{
+				lowercase.Name,
+				fr.ElisionName,
+				fr.StopName,
+				fr.LightStemmerName,
+			},
+		})
+	if err != nil {
+		return nil, err
+	}
+
 	mapping.DefaultType = doctype
-	mapping.DefaultAnalyzer = fr.AnalyzerName
+	mapping.DefaultAnalyzer = "fr-letter"
 
 	idx, err := bleve.NewMemOnly(mapping) // TODO in-memory is just for testing
 	if err != nil {
