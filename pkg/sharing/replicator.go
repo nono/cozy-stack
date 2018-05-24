@@ -631,7 +631,7 @@ func (s *Sharing) filterDocsToAdd(inst *instance.Instance, doctype string, docs 
 			}
 		}
 		if r >= 0 {
-			// TODO _rev is enough or should we use _revisions?
+			// TODO _rev is enough or should we use _revisions? conflicts?
 			ref := SharedRef{
 				SID:       doctype + "/" + doc["_id"].(string),
 				Revisions: &RevsTree{Rev: doc["_rev"].(string)},

@@ -115,7 +115,6 @@ func (s *Sharing) ValidateRules() error {
 }
 
 // Accept returns true if the document matches the rule criteria
-// TODO use add, update and remove properties of the rule
 func (r Rule) Accept(doctype string, doc map[string]interface{}) bool {
 	if r.Local || doctype != r.DocType {
 		return false

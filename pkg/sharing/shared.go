@@ -96,7 +96,7 @@ func (rt *RevsTree) Find(rev string) *RevsTree {
 
 // Add inserts the given revision in the main branch
 func (rt *RevsTree) Add(rev string) *RevsTree {
-	// TODO check generations
+	// TODO check generations (conflicts)
 	if len(rt.Branches) > 0 {
 		return rt.Branches[0].Add(rev)
 	}
@@ -108,7 +108,6 @@ func (rt *RevsTree) Add(rev string) *RevsTree {
 
 // InsertAfter inserts the given revision in the tree as a child of the second
 // revision.
-// TODO add tests
 func (rt *RevsTree) InsertAfter(rev, parent string) {
 	subtree := rt.Find(parent)
 	if subtree == nil {
@@ -120,14 +119,13 @@ func (rt *RevsTree) InsertAfter(rev, parent string) {
 		}
 	}
 	subtree.Branches = append(subtree.Branches, RevsTree{Rev: rev})
-	// TODO rebalance
+	// TODO rebalance (conflicts)
 }
 
 // InsertChain inserts a chain of revisions, ie the first revision is the
 // parent of the second revision, which is itself the parent of the third
 // revision, etc. The first revisions of the chain are very probably already in
 // the tree, the last one is certainly not.
-// TODO add tests
 func (rt *RevsTree) InsertChain(chain []string) {
 	if len(chain) == 0 {
 		return
@@ -153,7 +151,7 @@ func (rt *RevsTree) InsertChain(chain []string) {
 		subtree.Branches = append(subtree.Branches, RevsTree{Rev: rev})
 		subtree = &subtree.Branches[0]
 	}
-	// TODO rebalance
+	// TODO rebalance (conflicts)
 }
 
 // SharedRef is the struct for the documents in io.cozy.shared.
@@ -323,7 +321,6 @@ func UpdateShared(inst *instance.Instance, msg TrackMessage, evt TrackEvent) err
 			Binary: evt.Doc.Type == consts.Files && evt.Doc.Get("type") == consts.FileType,
 		}
 	}
-	// TODO can msg.RuleIndex be different to ref.Infos[msg.SharingID].Rule?
 
 	if evt.Verb == "DELETED" || isTrashed(evt.Doc) {
 		ref.Infos[msg.SharingID] = SharedInfo{
