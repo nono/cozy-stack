@@ -367,7 +367,7 @@ func (s *Sharing) ApplyBulkFiles(inst *instance.Instance, docs DocsList) error {
 		if ref != nil {
 			infos, ok = ref.Infos[s.SID]
 			if !ok {
-				errm = multierror.Append(errm, ErrInternalServerError) // TODO better error
+				errm = multierror.Append(errm, ErrSafety)
 				continue
 			}
 		}
@@ -402,7 +402,7 @@ func (s *Sharing) ApplyBulkFiles(inst *instance.Instance, docs DocsList) error {
 				errm = multierror.Append(errm, err)
 			}
 		} else if ref == nil {
-			// TODO be safe => return an error
+			errm = multierror.Append(errm, ErrSafety)
 			continue
 		} else {
 			err = s.UpdateDir(inst, target, dir)

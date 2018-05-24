@@ -308,13 +308,13 @@ func (s *Sharing) SyncFile(inst *instance.Instance, target *FileDocWithRevisions
 	err = couchdb.GetDoc(inst, consts.Shared, consts.Files+"/"+target.DocID, &ref)
 	if err != nil {
 		if couchdb.IsNotFoundError(err) {
-			return nil, ErrInternalServerError // TODO better error for safety principal
+			return nil, ErrSafety
 		}
 		return nil, err
 	}
 	infos, ok := ref.Infos[s.SID]
 	if !ok {
-		return nil, ErrInternalServerError // TODO better error for safety principal
+		return nil, ErrSafety
 	}
 	rule := &s.Rules[infos.Rule]
 	if RevGeneration(current.DocRev) >= RevGeneration(target.DocRev) {
@@ -436,7 +436,7 @@ func (s *Sharing) HandleFileUpload(inst *instance.Instance, key string, body io.
 	if olddoc == nil {
 		rule := s.findRuleForNewFile(newdoc)
 		if rule == nil {
-			return ErrInternalServerError // TODO better error
+			return ErrSafety
 		}
 		newdoc.ReferencedBy = buildReferencedBy(target.FileDoc, nil, rule)
 		// TODO create the io.cozy.shared reference?
@@ -447,13 +447,13 @@ func (s *Sharing) HandleFileUpload(inst *instance.Instance, key string, body io.
 	err = couchdb.GetDoc(inst, consts.Shared, consts.Files+"/"+target.DocID, &ref)
 	if err != nil {
 		if couchdb.IsNotFoundError(err) {
-			return ErrInternalServerError // TODO better error for safety principal
+			return ErrSafety
 		}
 		return err
 	}
 	infos, ok := ref.Infos[s.SID]
 	if !ok {
-		return ErrInternalServerError // TODO better error for safety principal
+		return ErrSafety
 	}
 	rule := &s.Rules[infos.Rule]
 	newdoc.ReferencedBy = buildReferencedBy(target.FileDoc, olddoc, rule)

@@ -472,6 +472,8 @@ func wrapErrors(err error) error {
 		return jsonapi.InvalidParameter("md5sum", err)
 	case sharing.ErrFolderNotFound:
 		return jsonapi.NotFound(err)
+	case sharing.ErrSafety:
+		return jsonapi.BadRequest(err)
 	}
 	return err
 }
