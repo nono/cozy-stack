@@ -4,15 +4,20 @@ import (
 	"context"
 	"fmt"
 	"os"
+	// "reflect"
 	"time"
 
 	"github.com/cozy/checkup"
 	"github.com/cozy/cozy-stack/pkg/config"
+	// "github.com/cozy/cozy-stack/pkg/couchdb"
+	"github.com/cozy/cozy-stack/pkg/index"
 	"github.com/cozy/cozy-stack/pkg/instance"
 	"github.com/cozy/cozy-stack/pkg/jobs"
 	"github.com/cozy/cozy-stack/pkg/logger"
 	"github.com/cozy/cozy-stack/pkg/sessions"
 	"github.com/cozy/cozy-stack/pkg/utils"
+
+	// "github.com/cozy/afero/mem"
 
 	"github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
@@ -75,6 +80,7 @@ security features. Please do not use this binary as your production server.
 			logrus.Warnf("%s, retrying in %v", err, attemptsSpacing)
 			time.Sleep(attemptsSpacing)
 		}
+
 	}
 	if err != nil {
 		return
@@ -123,5 +129,30 @@ security features. Please do not use this binary as your production server.
 		sessionSweeper,
 		gopAgent{},
 	)
+
+	// // Test some things
+	list, _ := instance.List()
+	db_name := list[0].Domain
+	db, _ := instance.Get(db_name)
+	// fmt.Println(db_name)
+	// db, _ := instance.Get(db_name)
+	// var docs []map[string]interface{}
+	// // var docs []*mem.FileData
+	// // var docs []map[interface{}]interface{}
+	// req := &couchdb.AllDocsRequest{Limit: 100}
+	// couchdb.GetAllDocs(db, "io.cozy.files", req, &docs)
+	// fmt.Println(reflect.TypeOf(docs))
+	// for _, doc := range docs {
+	// 	for key := range doc {
+	// 		fmt.Print(reflect.TypeOf(doc[key]))
+	// 		fmt.Print(" ")
+	// 		fmt.Println(doc[key])
+	// 	}
+	// }
+
+	i, _ := index.StartIndex()
+	index.FillIndex(i, db)
+	index.QueryIndex(i, "*qwant*") // ~ stands for fuzziness level, better use wildcard ?
+
 	return
 }
