@@ -150,9 +150,8 @@ security features. Please do not use this binary as your production server.
 	// 	}
 	// }
 
-	i, _ := index.StartIndex()
-	index.FillIndex(i, db)
-	index.QueryIndex(i, "*qwant*") // ~ stands for fuzziness level, better use wildcard ?
+	i, _ := index.StartIndex(db)
+	index.QueryIndex(i, db, "*rapport*") // ~ stands for fuzziness level, better use wildcard ?
 
 	return
 }
