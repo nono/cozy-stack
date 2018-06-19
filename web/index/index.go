@@ -33,7 +33,7 @@ func SearchQuery(c echo.Context) error {
 	// 	return err
 	// }
 
-	results, _ := index.QueryIndex("*" + fmt.Sprint(findRequest["searchQuery"]) + "*")
+	results, _ := index.QueryIndex(fmt.Sprint(findRequest["searchQuery"]))
 
 	fmt.Println(results)
 

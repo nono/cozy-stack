@@ -33,7 +33,24 @@ type file struct {
 		Height           int       `json:"height"`
 		Width            int       `json:"width"`
 	} `json:"metadata"`
+	// *document
 }
+
+type photoAlbum struct {
+	ID        string    `json:"_id"`
+	Rev       string    `json:"_rev"`
+	CreatedAt time.Time `json:"created_at"`
+	Name      string    `json:"name"`
+	DocType   string    `json:"docType"`
+	// *document
+}
+
+// type document struct {
+// 	ID      string `json:"_id"`
+// 	DocType string `json:"docType"`
+// }
+
+// var typeMap map[string]interface{}
 
 var mapIndexType map[string]string
 var indexAlias bleve.Index
@@ -47,6 +64,10 @@ func StartIndex(instance *instance.Instance) error {
 		"bleve/file.bleve":          "io.cozy.files",
 		"bleve/bank.accounts.bleve": "io.cozy.bank.accounts",
 	}
+
+	// typeMap = map[string]interface{}{
+	// 	"io.cozy.photos": photoAlbum{},
+	// }
 
 	var err error
 
@@ -101,44 +122,76 @@ func StartIndex(instance *instance.Instance) error {
 	return nil
 }
 
-func GetIndex(typeIndex string) (bleve.Index, error) {
+func GetIndex(indexPath string) (bleve.Index, error) {
 	indexMapping := bleve.NewIndexMapping()
-	AddTypeMapping(indexMapping, mapIndexType[typeIndex])
-	blevePath := typeIndex
+	AddTypeMapping(indexMapping, mapIndexType[indexPath])
+
+	blevePath := indexPath
+
 	i, err1 := bleve.Open(blevePath)
 	if err1 == bleve.ErrorIndexPathDoesNotExist {
-		fmt.Printf("Creating new index %s...", typeIndex)
+		fmt.Printf("Creating new index %s...", indexPath)
 		i, err2 := bleve.New(blevePath, indexMapping)
 		if err2 != nil {
 			fmt.Printf("Error on creating new Index: %s\n", err2)
 			return i, err2
 		}
-		FillIndex(i, mapIndexType[typeIndex])
+		FillIndex(i, mapIndexType[indexPath])
 		return i, nil
 
 	} else if err1 != nil {
-		fmt.Printf("Error on creating new Index %s: %s\n", typeIndex, err1)
+		fmt.Printf("Error on creating new Index %s: %s\n", indexPath, err1)
 		return i, err1
 	}
 	fmt.Printf("found existing Index")
 	return i, nil
-
 }
 
 func FillIndex(index bleve.Index, docType string) {
 
-	var docs []file
-	GetFileDocs(index, docType, &docs)
-	// See for using batch instead : batch := index.NewBatch()
-	for i := range docs {
-		docs[i].DocType = docType
-		index.Index(docs[i].ID, docs[i])
+	var docsFile []file
+	var docsPhotoAlbum []photoAlbum
+	if docType == "io.cozy.photos.albums" {
+		GetFileDocs(docType, &docsPhotoAlbum)
+		for i := range docsPhotoAlbum {
+			docsPhotoAlbum[i].DocType = docType
+			index.Index(docsPhotoAlbum[i].ID, docsPhotoAlbum[i])
+		}
+	} else {
+		GetFileDocs(docType, &docsFile)
+		for i := range docsFile {
+			docsFile[i].DocType = docType
+			index.Index(docsFile[i].ID, docsFile[i])
+		}
 	}
+
+	// var docs interface{}
+	// var docs []interface{}
+	// docs = []interface{}{typeMap[docType]}
+	// GetFileDocs(docType, &docs)
+	// for i := range docs {
+	// 	docs[i].DocType = docType
+	// 	index.Index(docs[i].ID, docs[i])
+	// }
+
+	// var docs []document
+	// if docType == "io.cozy.photos.albums" {
+	// 	docs = []photoAlbum{}
+	// } else {
+	// 	docs = []file{}
+	// }
+	// GetFileDocs(docType, &docs)
+	// for i := range docs {
+	// 	docs[i].DocType = docType
+	// 	index.Index(docs[i].ID, docs[i])
+	// }
+
+	// See for using batch instead : batch := index.NewBatch()
 
 }
 
-func GetFileDocs(index bleve.Index, docType string, docs *[]file) {
-	req := &couchdb.AllDocsRequest{Limit: 100}
+func GetFileDocs(docType string, docs interface{}) {
+	req := &couchdb.AllDocsRequest{}
 	err := couchdb.GetAllDocs(inst, docType, req, docs)
 	if err != nil {
 		fmt.Printf("Error on unmarshall: %s\n", err)
@@ -148,7 +201,7 @@ func GetFileDocs(index bleve.Index, docType string, docs *[]file) {
 func QueryIndex(queryString string) ([]couchdb.JSONDoc, error) {
 	var fetched []couchdb.JSONDoc
 
-	query := bleve.NewQueryStringQuery(queryString)
+	query := bleve.NewQueryStringQuery(PreparingQuery(queryString))
 	search := bleve.NewSearchRequest(query)
 	searchResults, err := indexAlias.Search(search)
 	if err != nil {
@@ -164,4 +217,8 @@ func QueryIndex(queryString string) ([]couchdb.JSONDoc, error) {
 		fetched = append(fetched, currFetched)
 	}
 	return fetched, nil
+}
+
+func PreparingQuery(queryString string) string {
+	return "*" + queryString + "*"
 }
