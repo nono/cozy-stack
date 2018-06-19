@@ -8,6 +8,7 @@ import (
 	// "github.com/blevesearch/bleve/mapping"
 	"github.com/cozy/cozy-stack/pkg/couchdb"
 	"github.com/cozy/cozy-stack/pkg/instance"
+	"github.com/cozy/cozy-stack/pkg/realtime"
 )
 
 type file struct {
@@ -23,7 +24,7 @@ type file struct {
 	Mime       string        `json:"mime"`
 	Class      string        `json:"class"`
 	Executable bool          `json:"executable"`
-	Trashed    bool          `json:"trashed"` //pay attention to trash or not
+	Trashed    bool          `json:"trashed"` //TODO: pay attention to trash or not
 	Tags       []interface{} `json:"tags"`
 	DocType    string        `json:"docType"`
 	Metadata   struct {
@@ -34,93 +35,133 @@ type file struct {
 	} `json:"metadata"`
 }
 
-func StartIndex(instance *instance.Instance) (bleve.Index, error) {
+var mapIndexType map[string]string
+var indexAlias bleve.Index
+var inst *instance.Instance
 
+func StartIndex(instance *instance.Instance) error {
+	inst = instance
+
+	mapIndexType = map[string]string{
+		"bleve/photo.albums.bleve":  "io.cozy.photos.albums",
+		"bleve/file.bleve":          "io.cozy.files",
+		"bleve/bank.accounts.bleve": "io.cozy.bank.accounts",
+	}
+
+	var err error
+
+	photoAlbumIndex, err := GetIndex("bleve/photo.albums.bleve")
+	if err != nil {
+		return err
+	}
+
+	fileIndex, err := GetIndex("bleve/file.bleve")
+	if err != nil {
+		return err
+	}
+
+	bankAccountIndex, err := GetIndex("bleve/bank.accounts.bleve")
+	if err != nil {
+		return err
+	}
+	// Creating an aliasIndex to make it clear to the user:
+	indexAlias = bleve.NewIndexAlias(photoAlbumIndex, fileIndex, bankAccountIndex)
+
+	// subscribing to changes
+	eventChan := realtime.GetHub().Subscriber(inst)
+	for _, value := range mapIndexType {
+		eventChan.Subscribe(value)
+	}
+
+	go func() {
+		for ev := range eventChan.Channel {
+			var originalIndex *bleve.Index
+			if ev.Doc.DocType() == "io.cozy.photos.albums" {
+				originalIndex = &photoAlbumIndex
+			}
+			if ev.Doc.DocType() == "io.cozy.files" {
+				originalIndex = &fileIndex
+			}
+			if ev.Doc.DocType() == "io.cozy.bank.accounts" {
+				originalIndex = &bankAccountIndex
+			}
+			if ev.Verb == "CREATED" || ev.Verb == "UPDATED" {
+				(*originalIndex).Index(ev.Doc.ID(), ev.Doc)
+				fmt.Println(ev.Doc)
+				fmt.Println("reindexed")
+			} else if ev.Verb == "DELETED" {
+				indexAlias.Delete(ev.Doc.ID())
+				fmt.Println("deleted")
+			} else {
+				fmt.Println(ev.Verb)
+			}
+		}
+	}()
+
+	return nil
+}
+
+func GetIndex(typeIndex string) (bleve.Index, error) {
 	indexMapping := bleve.NewIndexMapping()
-	indexMapping = addPhotoAlbumMapping(indexMapping)
-	indexMapping = addFileMapping(indexMapping)
-	indexMapping = addBankAccountMapping(indexMapping)
-	indexMapping.TypeField = "DocType"
-
-	// TODO : choose to make multiple index and indexalias instead of unique index
-	// indexAlias := bleve.NewIndexAlias(indexMapping)
-	// indexAlias.Index(id, data)
-
-	blevePath := "index.bleve"
+	AddTypeMapping(indexMapping, mapIndexType[typeIndex])
+	blevePath := typeIndex
 	i, err1 := bleve.Open(blevePath)
 	if err1 == bleve.ErrorIndexPathDoesNotExist {
-		fmt.Println("Creating new index...")
+		fmt.Printf("Creating new index %s...", typeIndex)
 		i, err2 := bleve.New(blevePath, indexMapping)
 		if err2 != nil {
-			fmt.Println("Error on creating new Index: %s\n", err2)
+			fmt.Printf("Error on creating new Index: %s\n", err2)
 			return i, err2
 		}
-		FillIndex(i, instance)
+		FillIndex(i, mapIndexType[typeIndex])
 		return i, nil
 
 	} else if err1 != nil {
-		fmt.Println("Error on creating new Index: %s\n", err1)
+		fmt.Printf("Error on creating new Index %s: %s\n", typeIndex, err1)
 		return i, err1
 	}
-	fmt.Println("found existing Index")
+	fmt.Printf("found existing Index")
 	return i, nil
 
-	// test(i)
 }
 
-func FillIndex(index bleve.Index, instance *instance.Instance) {
-
-	FillFilesIndex(index, instance)
-	FillAlbumPhotosIndex(index, instance)
-
-	// test(index)
-
-}
-
-func FillFilesIndex(index bleve.Index, instance *instance.Instance) {
+func FillIndex(index bleve.Index, docType string) {
 
 	var docs []file
-	GetFileDocs(index, instance, "io.cozy.files", &docs)
+	GetFileDocs(index, docType, &docs)
 	// See for using batch instead : batch := index.NewBatch()
 	for i := range docs {
-		docs[i].DocType = "io.cozy.files"
+		docs[i].DocType = docType
 		index.Index(docs[i].ID, docs[i])
 	}
 
 }
 
-func FillAlbumPhotosIndex(index bleve.Index, instance *instance.Instance) {
-	var docs []file
-	GetFileDocs(index, instance, "io.cozy.photos.albums", &docs)
-	fmt.Println(docs)
-	for i := range docs {
-		docs[i].DocType = "io.cozy.photos.albums"
-		index.Index(docs[i].ID, docs[i])
-	}
-
-}
-
-func GetFileDocs(index bleve.Index, instance *instance.Instance, docType string, docs *[]file) {
+func GetFileDocs(index bleve.Index, docType string, docs *[]file) {
 	req := &couchdb.AllDocsRequest{Limit: 100}
-	err := couchdb.GetAllDocs(instance, docType, req, docs)
+	err := couchdb.GetAllDocs(inst, docType, req, docs)
 	if err != nil {
-		fmt.Println("Error on unmarshall: %s\n", err)
+		fmt.Printf("Error on unmarshall: %s\n", err)
 	}
 }
 
-func QueryIndex(index bleve.Index, instance *instance.Instance, queryString string) {
+func QueryIndex(queryString string) ([]couchdb.JSONDoc, error) {
+	var fetched []couchdb.JSONDoc
+
 	query := bleve.NewQueryStringQuery(queryString)
 	search := bleve.NewSearchRequest(query)
-	searchResults, err := index.Search(search)
+	searchResults, err := indexAlias.Search(search)
 	if err != nil {
-		fmt.Println(err)
-		return
+		fmt.Printf("Error on querying: %s", err)
+		return fetched, err
 	}
-	fmt.Println(searchResults.String())
+	fmt.Printf(searchResults.String())
 
-	var fetched couchdb.JSONDoc
+	var currFetched couchdb.JSONDoc
 	for _, result := range searchResults.Hits {
-		couchdb.GetDoc(instance, "io.cozy.files", result.ID, &fetched)
-		fmt.Println(fetched)
+		currFetched = couchdb.JSONDoc{}
+		couchdb.GetDoc(inst, mapIndexType[result.Index], result.ID, &currFetched)
+		fetched = append(fetched, currFetched)
 	}
+	return fetched, nil
 }

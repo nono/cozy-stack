@@ -134,24 +134,10 @@ security features. Please do not use this binary as your production server.
 	list, _ := instance.List()
 	db_name := list[0].Domain
 	db, _ := instance.Get(db_name)
-	// fmt.Println(db_name)
-	// db, _ := instance.Get(db_name)
-	// var docs []map[string]interface{}
-	// // var docs []*mem.FileData
-	// // var docs []map[interface{}]interface{}
-	// req := &couchdb.AllDocsRequest{Limit: 100}
-	// couchdb.GetAllDocs(db, "io.cozy.files", req, &docs)
-	// fmt.Println(reflect.TypeOf(docs))
-	// for _, doc := range docs {
-	// 	for key := range doc {
-	// 		fmt.Print(reflect.TypeOf(doc[key]))
-	// 		fmt.Print(" ")
-	// 		fmt.Println(doc[key])
-	// 	}
-	// }
 
-	i, _ := index.StartIndex(db)
-	index.QueryIndex(i, db, "*rapport*") // ~ stands for fuzziness level, better use wildcard ?
+	index.StartIndex(db)
+	results, _ := index.QueryIndex("*qwant*") // ~ stands for fuzziness level, better use wildcard ?
+	fmt.Println(results)
 
 	return
 }

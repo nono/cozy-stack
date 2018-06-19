@@ -6,7 +6,22 @@ import (
 	// "github.com/blevesearch/bleve/analysis/analyzer/simple" // Might be useful to check for other Analyzers (maybe make one ourselves)
 )
 
-func addPhotoAlbumMapping(indexMapping *mapping.IndexMappingImpl) *mapping.IndexMappingImpl {
+func AddTypeMapping(indexMapping *mapping.IndexMappingImpl, docType string) {
+	switch docType {
+	case "io.cozy.photos.albums":
+		indexMapping = AddPhotoAlbumMapping(indexMapping)
+		break
+	case "io.cozy.files":
+		indexMapping = AddFileMapping(indexMapping)
+		break
+	case "io.cozy.bank.accounts":
+		indexMapping = AddBankAccountMapping(indexMapping)
+		break
+	}
+	indexMapping.TypeField = "DocType"
+}
+
+func AddPhotoAlbumMapping(indexMapping *mapping.IndexMappingImpl) *mapping.IndexMappingImpl {
 	photosAlbumMapping := bleve.NewDocumentMapping()
 
 	englishTextFieldMapping := bleve.NewTextFieldMapping()
@@ -20,10 +35,11 @@ func addPhotoAlbumMapping(indexMapping *mapping.IndexMappingImpl) *mapping.Index
 	return indexMapping
 }
 
-func addFileMapping(indexMapping *mapping.IndexMappingImpl) *mapping.IndexMappingImpl {
+func AddFileMapping(indexMapping *mapping.IndexMappingImpl) *mapping.IndexMappingImpl {
 	FileMapping := bleve.NewDocumentMapping()
 
 	englishTextFieldMapping := bleve.NewTextFieldMapping()
+	// englishTextFieldMapping.Index = false
 	// englishTextFieldMapping.Analyzer = "en"
 	// englishTextFieldMapping.IncludeInAll = true
 
@@ -40,7 +56,7 @@ func addFileMapping(indexMapping *mapping.IndexMappingImpl) *mapping.IndexMappin
 	return indexMapping
 }
 
-func addBankAccountMapping(indexMapping *mapping.IndexMappingImpl) *mapping.IndexMappingImpl {
+func AddBankAccountMapping(indexMapping *mapping.IndexMappingImpl) *mapping.IndexMappingImpl {
 	BankAccountMapping := bleve.NewDocumentMapping()
 
 	englishTextFieldMapping := bleve.NewTextFieldMapping()
