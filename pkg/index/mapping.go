@@ -3,15 +3,20 @@ package index
 import (
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/mapping"
+	"github.com/cozy/cozy-stack/pkg/consts"
 	// "github.com/blevesearch/bleve/analysis/analyzer/simple" // Might be useful to check for other Analyzers (maybe make one ourselves)
 )
 
 func AddTypeMapping(indexMapping *mapping.IndexMappingImpl, docType string) {
+
+	// For each type of document, don't forget to Add Document Disable Mapping on useless fields
+	// It affects performances a lot
+
 	switch docType {
-	case "io.cozy.photos.albums":
+	case consts.PhotosAlbums:
 		indexMapping = AddPhotoAlbumMapping(indexMapping)
 		break
-	case "io.cozy.files":
+	case consts.Files:
 		indexMapping = AddFileMapping(indexMapping)
 		break
 	case "io.cozy.bank.accounts":
@@ -30,28 +35,44 @@ func AddPhotoAlbumMapping(indexMapping *mapping.IndexMappingImpl) *mapping.Index
 
 	photosAlbumMapping.AddFieldMappingsAt("name", englishTextFieldMapping)
 
-	indexMapping.AddDocumentMapping("io.cozy.photos.albums", photosAlbumMapping)
+	indexMapping.AddDocumentMapping(consts.PhotosAlbums, photosAlbumMapping)
 
 	return indexMapping
 }
 
 func AddFileMapping(indexMapping *mapping.IndexMappingImpl) *mapping.IndexMappingImpl {
-	FileMapping := bleve.NewDocumentMapping()
+	fileMapping := bleve.NewDocumentMapping()
 
+	// Type fields mapping
 	englishTextFieldMapping := bleve.NewTextFieldMapping()
-	// englishTextFieldMapping.Index = false
-	// englishTextFieldMapping.Analyzer = "en"
-	// englishTextFieldMapping.IncludeInAll = true
+	englishTextFieldMapping.Analyzer = "en"
+	englishTextFieldMapping.IncludeInAll = true
+
+	fileMapping.AddFieldMappingsAt("name", englishTextFieldMapping)
+	fileMapping.AddFieldMappingsAt("tags", englishTextFieldMapping)
 
 	dateMapping := bleve.NewDateTimeFieldMapping()
 
-	FileMapping.AddFieldMappingsAt("name", englishTextFieldMapping)
-	FileMapping.AddFieldMappingsAt("created_at", dateMapping)
-	FileMapping.AddFieldMappingsAt("updated_at", dateMapping)
-	FileMapping.AddFieldMappingsAt("tags", englishTextFieldMapping)
+	fileMapping.AddFieldMappingsAt("created_at", dateMapping)
+	fileMapping.AddFieldMappingsAt("updated_at", dateMapping)
 	// TODO: check tag mapping (knowing it's an array)
 
-	indexMapping.AddDocumentMapping("io.cozy.files", FileMapping)
+	// Ignore fields mapping
+	ignoreMapping := bleve.NewDocumentDisabledMapping()
+	fileMapping.AddSubDocumentMapping("metadata", ignoreMapping)
+	fileMapping.AddSubDocumentMapping("referenced_by", ignoreMapping)
+	fileMapping.AddSubDocumentMapping("_id", ignoreMapping)
+	fileMapping.AddSubDocumentMapping("_rev", ignoreMapping)
+	fileMapping.AddSubDocumentMapping("class", ignoreMapping)
+	fileMapping.AddSubDocumentMapping("executable", ignoreMapping)
+	fileMapping.AddSubDocumentMapping("mime", ignoreMapping)
+	fileMapping.AddSubDocumentMapping("trashed", ignoreMapping)
+	fileMapping.AddSubDocumentMapping("type", ignoreMapping)
+	fileMapping.AddSubDocumentMapping("dir_id", ignoreMapping)
+	fileMapping.AddSubDocumentMapping("size", ignoreMapping)
+	fileMapping.AddSubDocumentMapping("md5sum", ignoreMapping)
+
+	indexMapping.AddDocumentMapping(consts.Files, fileMapping)
 
 	return indexMapping
 }
