@@ -4,20 +4,16 @@ import (
 	"context"
 	"fmt"
 	"os"
-	// "reflect"
 	"time"
 
 	"github.com/cozy/checkup"
 	"github.com/cozy/cozy-stack/pkg/config"
-	// "github.com/cozy/cozy-stack/pkg/couchdb"
 	"github.com/cozy/cozy-stack/pkg/index"
 	"github.com/cozy/cozy-stack/pkg/instance"
 	"github.com/cozy/cozy-stack/pkg/jobs"
 	"github.com/cozy/cozy-stack/pkg/logger"
 	"github.com/cozy/cozy-stack/pkg/sessions"
 	"github.com/cozy/cozy-stack/pkg/utils"
-
-	// "github.com/cozy/afero/mem"
 
 	"github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
@@ -80,7 +76,6 @@ security features. Please do not use this binary as your production server.
 			logrus.Warnf("%s, retrying in %v", err, attemptsSpacing)
 			time.Sleep(attemptsSpacing)
 		}
-
 	}
 	if err != nil {
 		return
@@ -130,7 +125,8 @@ security features. Please do not use this binary as your production server.
 		gopAgent{},
 	)
 
-	// // Test some things
+	// Start a bleve index
+	// TODO : clean the start-up (especially the instance part)
 	list, _ := instance.List()
 	db_name := list[0].Domain
 	db, _ := instance.Get(db_name)
