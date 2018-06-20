@@ -6,6 +6,7 @@ import (
 
 	"github.com/blevesearch/bleve"
 	// "github.com/blevesearch/bleve/mapping"
+	"github.com/cozy/cozy-stack/pkg/consts"
 	"github.com/cozy/cozy-stack/pkg/couchdb"
 	"github.com/cozy/cozy-stack/pkg/instance"
 	"github.com/cozy/cozy-stack/pkg/realtime"
@@ -33,7 +34,6 @@ type file struct {
 		Height           int       `json:"height"`
 		Width            int       `json:"width"`
 	} `json:"metadata"`
-	// *document
 }
 
 type photoAlbum struct {
@@ -42,13 +42,7 @@ type photoAlbum struct {
 	CreatedAt time.Time `json:"created_at"`
 	Name      string    `json:"name"`
 	DocType   string    `json:"docType"`
-	// *document
 }
-
-// type document struct {
-// 	ID      string `json:"_id"`
-// 	DocType string `json:"docType"`
-// }
 
 // var typeMap map[string]interface{}
 
@@ -60,9 +54,9 @@ func StartIndex(instance *instance.Instance) error {
 	inst = instance
 
 	mapIndexType = map[string]string{
-		"bleve/photo.albums.bleve":  "io.cozy.photos.albums",
-		"bleve/file.bleve":          "io.cozy.files",
-		"bleve/bank.accounts.bleve": "io.cozy.bank.accounts",
+		"bleve/photo.albums.bleve":  consts.PhotosAlbums,
+		"bleve/file.bleve":          consts.Files,
+		"bleve/bank.accounts.bleve": "io.cozy.bank.accounts", // TODO : check why it doesn't exist in consts
 	}
 
 	// typeMap = map[string]interface{}{
@@ -129,8 +123,10 @@ func GetIndex(indexPath string) (bleve.Index, error) {
 	blevePath := indexPath
 
 	i, err1 := bleve.Open(blevePath)
+
+	// Create it if it doesn't exist
 	if err1 == bleve.ErrorIndexPathDoesNotExist {
-		fmt.Printf("Creating new index %s...", indexPath)
+		fmt.Printf("Creating new index %s...\n", indexPath)
 		i, err2 := bleve.New(blevePath, indexMapping)
 		if err2 != nil {
 			fmt.Printf("Error on creating new Index: %s\n", err2)
@@ -143,50 +139,59 @@ func GetIndex(indexPath string) (bleve.Index, error) {
 		fmt.Printf("Error on creating new Index %s: %s\n", indexPath, err1)
 		return i, err1
 	}
-	fmt.Printf("found existing Index")
+
+	fmt.Println("found existing Index")
 	return i, nil
 }
 
 func FillIndex(index bleve.Index, docType string) {
 
-	var docsFile []file
-	var docsPhotoAlbum []photoAlbum
-	if docType == "io.cozy.photos.albums" {
-		GetFileDocs(docType, &docsPhotoAlbum)
-		for i := range docsPhotoAlbum {
-			docsPhotoAlbum[i].DocType = docType
-			index.Index(docsPhotoAlbum[i].ID, docsPhotoAlbum[i])
-		}
-	} else {
-		GetFileDocs(docType, &docsFile)
-		for i := range docsFile {
-			docsFile[i].DocType = docType
-			index.Index(docsFile[i].ID, docsFile[i])
-		}
-	}
+	// Which solution to use ?
+	// Either a common struct (such as JSONDoc) or a struct by type of document ?
 
-	// var docs interface{}
-	// var docs []interface{}
-	// docs = []interface{}{typeMap[docType]}
-	// GetFileDocs(docType, &docs)
-	// for i := range docs {
-	// 	docs[i].DocType = docType
-	// 	index.Index(docs[i].ID, docs[i])
-	// }
+	// 	// Specified struct
 
-	// var docs []document
+	// var docsFile []file
+	// var docsPhotoAlbum []photoAlbum
 	// if docType == "io.cozy.photos.albums" {
-	// 	docs = []photoAlbum{}
+	// 	GetFileDocs(docType, &docsPhotoAlbum)
+	// 	for i := range docsPhotoAlbum {
+	// 		docsPhotoAlbum[i].DocType = docType
+	// 		index.Index(docsPhotoAlbum[i].ID, docsPhotoAlbum[i])
+	// 	}
 	// } else {
-	// 	docs = []file{}
-	// }
-	// GetFileDocs(docType, &docs)
-	// for i := range docs {
-	// 	docs[i].DocType = docType
-	// 	index.Index(docs[i].ID, docs[i])
+	// 	GetFileDocs(docType, &docsFile)
+	// 	for i := range docsFile {
+	// 		docsFile[i].DocType = docType
+	// 		index.Index(docsFile[i].ID, docsFile[i])
+	// 	}
 	// }
 
-	// See for using batch instead : batch := index.NewBatch()
+	// 	// Common struct
+
+	// // Indexation Time
+	// start := time.Now()
+	// var docs []couchdb.JSONDoc
+	// GetFileDocs(docType, &docs)
+	// for i := range docs {
+	// 	docs[i].M["DocType"] = docType
+	// 	index.Index(docs[i].ID(), docs[i].M)
+	// }
+	// end := time.Since(start)
+	// fmt.Println(docType, " indexing time: ", end, " for ", len(docs), " documents")
+
+	// Indexation Batch Time
+	start := time.Now()
+	var docs []couchdb.JSONDoc
+	batch := index.NewBatch()
+	GetFileDocs(docType, &docs)
+	for i := range docs {
+		docs[i].M["DocType"] = docType
+		batch.Index(docs[i].ID(), docs[i].M)
+	}
+	index.Batch(batch)
+	end := time.Since(start)
+	fmt.Println(docType, " indexing time: ", end, " for ", len(docs), " documents")
 
 }
 
