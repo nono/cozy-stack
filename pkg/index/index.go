@@ -10,6 +10,7 @@ import (
 	"github.com/cozy/cozy-stack/pkg/couchdb"
 	"github.com/cozy/cozy-stack/pkg/instance"
 	"github.com/cozy/cozy-stack/pkg/realtime"
+	"github.com/cozy/cozy-stack/pkg/vfs"
 )
 
 type file struct {
@@ -49,6 +50,11 @@ type photoAlbum struct {
 var mapIndexType map[string]string
 var indexAlias bleve.Index
 var inst *instance.Instance
+
+type fileWithContent struct {
+	realtime.Doc
+	Content string `json:"content"`
+}
 
 func StartIndex(instance *instance.Instance) error {
 	inst = instance
@@ -98,8 +104,17 @@ func StartIndex(instance *instance.Instance) error {
 				originalIndex = &bankAccountIndex
 			}
 			if ev.Verb == "CREATED" || ev.Verb == "UPDATED" {
-				(*originalIndex).Index(ev.Doc.ID(), ev.Doc)
-				fmt.Println(ev.Doc)
+				doc := ev.Doc
+				if doc.DocType() == consts.Files {
+					content, err := vfs.IndexableContent(instance.VFS(), doc.ID())
+					if err != nil {
+						instance.Logger().WithField("nspace", "index").
+							Errorf("Error on IndexableContent: %s", err)
+					}
+					doc = &fileWithContent{doc, content}
+				}
+				(*originalIndex).Index(doc.ID(), doc)
+				fmt.Printf("%#v", doc)
 				fmt.Println("reindexed")
 			} else if ev.Verb == "DELETED" {
 				indexAlias.Delete(ev.Doc.ID())
