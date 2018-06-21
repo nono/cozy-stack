@@ -59,10 +59,6 @@ func StartIndex(instance *instance.Instance) error {
 		"bleve/bank.accounts.bleve": "io.cozy.bank.accounts", // TODO : check why it doesn't exist in consts
 	}
 
-	// typeMap = map[string]interface{}{
-	// 	"io.cozy.photos": photoAlbum{},
-	// }
-
 	var err error
 
 	photoAlbumIndex, err := GetIndex("bleve/photo.albums.bleve")
@@ -79,6 +75,7 @@ func StartIndex(instance *instance.Instance) error {
 	if err != nil {
 		return err
 	}
+
 	// Creating an aliasIndex to make it clear to the user:
 	indexAlias = bleve.NewIndexAlias(photoAlbumIndex, fileIndex, bankAccountIndex)
 
@@ -207,13 +204,28 @@ func QueryIndex(queryString string) ([]couchdb.JSONDoc, error) {
 	var fetched []couchdb.JSONDoc
 
 	query := bleve.NewQueryStringQuery(PreparingQuery(queryString))
-	search := bleve.NewSearchRequest(query)
-	searchResults, err := indexAlias.Search(search)
+	searchRequest := bleve.NewSearchRequest(query)
+
+	// Addings Facets
+	// docTypes facet
+	searchRequest.AddFacet("docTypes", bleve.NewFacetRequest("DocType", 3))
+	// created facet
+	var cutOffDate = time.Now().Add(-7 * 24 * time.Hour)
+	createdFacet := bleve.NewFacetRequest("created_at", 2)
+	createdFacet.AddDateTimeRange("old", time.Unix(0, 0), cutOffDate)
+	createdFacet.AddDateTimeRange("new", cutOffDate, time.Unix(9999999999, 9999999999)) //check how many 9 needed
+	searchRequest.AddFacet("created", createdFacet)
+
+	searchResults, err := indexAlias.Search(searchRequest)
 	if err != nil {
 		fmt.Printf("Error on querying: %s", err)
 		return fetched, err
 	}
 	fmt.Printf(searchResults.String())
+
+	for _, dateRange := range searchResults.Facets["created"].DateRanges {
+		fmt.Printf("\t%s(%d)\n", dateRange.Name, dateRange.Count)
+	}
 
 	var currFetched couchdb.JSONDoc
 	for _, result := range searchResults.Hits {
@@ -221,6 +233,7 @@ func QueryIndex(queryString string) ([]couchdb.JSONDoc, error) {
 		couchdb.GetDoc(inst, mapIndexType[result.Index], result.ID, &currFetched)
 		fetched = append(fetched, currFetched)
 	}
+
 	return fetched, nil
 }
 
