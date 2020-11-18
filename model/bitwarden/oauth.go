@@ -22,6 +22,7 @@ var BitwardenScope = strings.Join([]string{
 	consts.BitwardenOrganizations,
 	consts.Konnectors,
 	consts.AppsSuggestion,
+	consts.Support,
 }, " ")
 
 // ParseBitwardenDeviceType takes a deviceType (Bitwarden) and transforms it
